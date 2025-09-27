@@ -15,28 +15,44 @@ def fetch_articles(url):
     cards = soup.select("a[data-testid='articlefeaturedcard-component']")
 
     for card in cards:
-        title_el = card.select_one("[data-testid='card-title']")
-        desc_el = card.select_one("[data-testid='card-description']")
-        time_el = card.select_one("time")
-
+        title_el = card.select_one("div[data-testid='card-title']")
         title = title_el.get_text(strip=True) if title_el else "Sin título"
-        desc = desc_el.get_text(strip=True) if desc_el else ""
-        href = card.get("href", "")
+
+        time_el = card.select_one("div[data-testid='card-date'] time")
+        pub_date = time_el["datetime"] if time_el else ""
+
+        card_img_el = card.select_one("img[data-testid='mediaImage']")
+        card_img_url = card_img_el['src'] if card_img_el else ""
+
+        href = card.get("href")
         if href.startswith("/"):
-            href = url.split("/")[0] + "//" + url.split("/")[2] + href
-        pub_date = (
-            datetime.strptime(time_el["datetime"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%a, %d %b %Y %H:%M:%S GMT")
-            if time_el and time_el.has_attr("datetime")
-            else datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")
-        )
-        guid = hashlib.md5(href.encode("utf-8")).hexdigest()
+            href = "https://www.leagueoflegends.com" + href
+
+        # Fetch patch detail safely
+        desc = ""
+        detail_img_url = card_img_url
+        try:
+            detail_resp = requests.get(href)
+            detail_resp.raise_for_status()
+            detail_soup = BeautifulSoup(detail_resp.text, "lxml")
+
+            resume_div = detail_soup.select_one("div.white-stone div")
+            if resume_div:
+                p_el = resume_div.select_one("p")
+                desc = p_el.get_text(strip=True) if p_el else ""
+                img_el = resume_div.select_one("img")
+                if img_el and img_el.has_attr('src'):
+                    detail_img_url = img_el['src']
+        except Exception as e:
+            print(f"Failed to fetch detail page {href}: {e}")
 
         articles.append({
             "title": title,
             "link": href,
             "description": desc,
             "pubDate": pub_date,
-            "guid": guid
+            "guid": hashlib.md5(href.encode()).hexdigest(),
+            "image": detail_img_url
         })
 
     return articles
@@ -44,7 +60,6 @@ def fetch_articles(url):
 def build_rss(all_articles, feed_title="Sale con fritas NEWS"):
     rss = ET.Element("rss", version="2.0")
     channel = ET.SubElement(rss, "channel")
-
     ET.SubElement(channel, "title").text = feed_title
     ET.SubElement(channel, "link").text = "http://localhost/"
     ET.SubElement(channel, "description").text = "El RSS que querés para todas tus noticias"
@@ -56,6 +71,8 @@ def build_rss(all_articles, feed_title="Sale con fritas NEWS"):
         ET.SubElement(item, "description").text = art["description"]
         ET.SubElement(item, "pubDate").text = art["pubDate"]
         ET.SubElement(item, "guid").text = art["guid"]
+        if art.get("image"):
+            ET.SubElement(item, "enclosure", url=art["image"], type="image/jpeg")
 
     return ET.ElementTree(rss)
 
