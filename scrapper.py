@@ -11,24 +11,27 @@ def fetch_articles(url):
 
     articles = []
 
-    # Riot pages mark patch cards with this attribute
+    # Riot patch cards
     cards = soup.select("a[data-testid='articlefeaturedcard-component']")
+    if not cards:
+        # fallback for single patch page (Valorant or LoL main patch)
+        cards = [soup]
 
     for card in cards:
-        title_el = card.select_one("div[data-testid='card-title']")
+        title_el = card.select_one("div[data-testid='card-title'], h1")
         title = title_el.get_text(strip=True) if title_el else "Sin título"
 
-        time_el = card.select_one("div[data-testid='card-date'] time")
-        pub_date = time_el["datetime"] if time_el else ""
+        time_el = card.select_one("div[data-testid='card-date'] time, time")
+        pub_date = time_el["datetime"] if time_el and time_el.has_attr("datetime") else datetime.utcnow().isoformat()
 
-        card_img_el = card.select_one("img[data-testid='mediaImage']")
-        card_img_url = card_img_el['src'] if card_img_el else ""
+        card_img_el = card.select_one("img[data-testid='mediaImage'], div[data-testid='article-hero-image'] img")
+        card_img_url = card_img_el['src'] if card_img_el and card_img_el.has_attr('src') else ""
 
-        href = card.get("href")
+        href = card.get("href") if card.get("href") else url
         if href.startswith("/"):
             href = "https://www.leagueoflegends.com" + href
 
-        # Fetch patch detail safely
+        # fetch patch detail
         desc = ""
         detail_img_url = card_img_url
         try:
@@ -36,7 +39,7 @@ def fetch_articles(url):
             detail_resp.raise_for_status()
             detail_soup = BeautifulSoup(detail_resp.text, "lxml")
 
-            resume_div = detail_soup.select_one("div.white-stone div")
+            resume_div = detail_soup.select_one("div.white-stone div, div[data-testid='content']")
             if resume_div:
                 p_el = resume_div.select_one("p")
                 desc = p_el.get_text(strip=True) if p_el else ""
@@ -57,12 +60,12 @@ def fetch_articles(url):
 
     return articles
 
-def build_rss(all_articles, feed_title="Sale con fritas NEWS"):
+def build_rss(all_articles, feed_title="Patch Notes Feed"):
     rss = ET.Element("rss", version="2.0")
     channel = ET.SubElement(rss, "channel")
     ET.SubElement(channel, "title").text = feed_title
     ET.SubElement(channel, "link").text = "http://localhost/"
-    ET.SubElement(channel, "description").text = "El RSS que querés para todas tus noticias"
+    ET.SubElement(channel, "description").text = "Custom RSS feed for patch notes"
 
     for art in all_articles:
         item = ET.SubElement(channel, "item")
