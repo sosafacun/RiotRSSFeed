@@ -65,12 +65,12 @@ def fetch_articles(url):
     return articles
 
 
-def build_rss(all_articles, feed_title="Patch Notes Feed"):
+def build_rss(all_articles, feed_title="Milanga Gaming News"):
     rss = ET.Element("rss", version="2.0")
     channel = ET.SubElement(rss, "channel")
     ET.SubElement(channel, "title").text = feed_title
     ET.SubElement(channel, "link").text = "http://localhost/"
-    ET.SubElement(channel, "description").text = "Custom RSS feed for patch notes"
+    ET.SubElement(channel, "description").text = "RSS para Riot Games porque los hdps no tienen el suyo."
 
     for art in all_articles:
         item = ET.SubElement(channel, "item")
