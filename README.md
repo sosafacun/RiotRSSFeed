@@ -1,11 +1,5 @@
-> python3 -m venv venv
->
-> source .\venv\Scripts\activate
->
-> pip install requirements.txt
->
-> python scrapper.py
+Testeado en Python 3.8
 
-En urls.txt va el feed de Riot que queramos.
-
-En el ejemplo está el locale es-mx.
+- Crea un venv en python
+- Instalá requirements.txt con pip
+- Corré scrapper.py

@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 import xml.etree.ElementTree as ET
 import hashlib
+from urllib.parse import urlparse
 
 def fetch_articles(url):
     r = requests.get(url)
@@ -11,11 +12,14 @@ def fetch_articles(url):
 
     articles = []
 
-    # Riot patch cards
-    cards = soup.select("a[data-testid='articlefeaturedcard-component']")
+    # Riot patch cards (both LoL and Valorant)
+    cards = soup.select("a[data-testid='articlefeaturedcard-component'], a[data-testid='news-card']")
     if not cards:
-        # fallback for single patch page (Valorant or LoL main patch)
-        cards = [soup]
+        # fallback: Valorant sometimes wraps articles differently
+        cards = soup.select("a[data-testid='news-card']") or []
+
+    parsed = urlparse(url)
+    base_url = f"{parsed.scheme}://{parsed.netloc}"
 
     for card in cards:
         title_el = card.select_one("div[data-testid='card-title'], h1")
@@ -29,9 +33,9 @@ def fetch_articles(url):
 
         href = card.get("href") if card.get("href") else url
         if href.startswith("/"):
-            href = "https://www.leagueoflegends.com" + href
+            href = base_url + href
 
-        # fetch patch detail
+        # fetch detail page
         desc = ""
         detail_img_url = card_img_url
         try:
@@ -59,6 +63,7 @@ def fetch_articles(url):
         })
 
     return articles
+
 
 def build_rss(all_articles, feed_title="Patch Notes Feed"):
     rss = ET.Element("rss", version="2.0")
